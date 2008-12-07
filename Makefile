@@ -3,11 +3,11 @@ AVRDUDE_PORT=/dev/ttyUSB0
 MCU = attiny45
 
 #F_CPU = 8000000
-F_CPU = 10000000
+F_CPU = 1000000
 
 TARGET = limon
 
-SRC = limon.c
+SRC = limon.c avr_adc.c
 
 include ../avr-tmpl.mk
 
