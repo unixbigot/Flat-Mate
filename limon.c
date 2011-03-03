@@ -1,4 +1,3 @@
-
 /*
  * Simple Li-poly battery monitor
  *
@@ -21,8 +20,8 @@
  * Pins:
  *
  * BATI - Battery voltage sense input pint 
- * LEDA - battery level alert led (red/grn bicolour totem-pole arrangement)
- * LEDB - battery level usable led (orange)
+ * LEDA - battery level ok led (yellow /red bicolour totem-pole arrangement)
+ * LEDB - battery level low led (yellow)
  * LEDC - battery level good led (yellow)
  * LEDD - battery level full led (green)
  *
@@ -43,7 +42,7 @@
 
 
 // battery voltage level (Vb) input uses Analog input 2 on PB4 (pin 3)
-// Vb/3 via voltage-divider is compared against internal 5V reference 
+// Vb/12 via voltage-divider is compared against internal 1.1V reference 
 // (ADC unit has choice of 1.1v, 2.56v and 5v(VCC) references.)
 #define BATI_DDR		DDRB
 #define BATI_PORT		PORTB
@@ -76,10 +75,11 @@
  */
 #define USE_TIMER 1
 #define USE_BARGRAPH 1
+#define CELL_COUNT 3
 
 /* 
  *@@ Voltage trigger levels.
- * Battery voltage is read through a voltage divider.
+ * Battery voltage is read through a voltage divider and compared to the internal voltage reference.
  *
  * if 
  *    Vin ----+
@@ -110,15 +110,23 @@
  * For battery endurance, do not discharge below 3.0v/cell (aircraft users commonly use 2.9v/cell as limit)
  *
  * A 3-cell battery (nominally 11.1v) thus varies from 12.9v to 8.1v, with low-volt alert at 9.0v
+ * A 2-cell battery (nominally 7.5v)  varies      from  8.5v to 5.4v, with low-volt alert at 6.0v
  *
  *
  *@@ Analog read values for defined voltage levels
  *
- * We consider 12v+ to be "full", 11v "good", 10v "low" and 9v "critical" (BMV_foo constants are these values in millivolts)
+ * We consider 12v+ to be "full", 11v "good", 10v "low" and 9v "critical" 
+ * (BMV_foo constants are these values in millivolts)
  *
- * In AVR-worldview, we use 5:1 voltage divider (0.204 scale factor), and read 10-bit ADC comparisons versus VCC (5.00v)
+ * In AVR-worldview, we use 12:1 voltage divider 
+ * and read 10-bit ADC comparisons versus AREF (1.1v)
  *  
- * So 12v becomes 4.00V when divided.   Compared to 5v reference this gives an ADC result of 1024*(4.0/5.0) == 819
+ * So 12v becomes 1.00V when divided.   
+ * Compared to 1.1v reference this gives an ADC result of 1024*(1.0/1.1) == 859
+ *
+ * An alternative approach is to use a smaller voltage divisor and compare
+ * against Vcc (5.0v), but in practice a 12:1 divisor is easier to achieve
+ * due to the standard first preference resistor value series.
  *
  * (defun volts2int (v sf ref) (round (/ (* 1024.0 (* (float v) sf) ) (float ref))))
  * (defun vlist2int (sf ref levels) (mapcar (lambda (v) (volts2int (float v) sf ref)) levels))
@@ -127,6 +135,8 @@
  *     (vlist2int (rn2div 20000 10000) 5.0 '(12 11 10 9)) => (819 751 683 614)
  *     (vlist2int (rn2div 12000 1000) 1.1 '(12 11 10 9))=> (859 788 716 644)
  */
+
+#if CELL_COUNT == 3
 
 #define BMV_FULL 12000
 #define VL_FULL 859
@@ -139,6 +149,24 @@
 
 #define BMV_CRIT 9000
 #define VL_CRIT  644
+
+#elif CELL_COUNT == 2
+
+#define BMV_FULL 8000
+#define VL_FULL   573
+
+#define BMV_GOOD 7300
+#define VL_GOOD   523
+
+#define BMV_LOW  6650
+#define VL_LOW    476
+
+#define BMV_CRIT 6000
+#define VL_CRIT   430
+
+#else
+#error "Unsupported cell count"
+#endif
 
 
 /* 
@@ -164,34 +192,10 @@ void delay_1s(void)
 /* 
  *@ Application subroutines
  */
-void led_crit(char on)
-{
-	if (on)
-		LED_PORT |= LEDA_BV;
-	else
-		LED_PORT &= ~LEDA_BV;
-}
-
-void led_on(char mask)
-{
-	LED_PORT |= mask;
-}
-
-void led_off(char mask)
-{
-	LED_PORT &= ~(mask);
-}
-
-void update_leds(unsigned int level) 
-{
-	unsigned char leds = LED_PORT;
-	leds &= ~LEDALL_BV;
-
-	// The critical level LED is independent of the bargraph leds.
-	// It's a biColor RED when crit, and GRN for power-on-voltage-OK
-	if   (level <= VL_CRIT)
+	// (shutdown now or fry your battery)
+	if   (level > VL_CRIT)
 	{
-		// battery critical
+		// battery critical, clear the OK pin
 		leds |= LEDA_BV;
 	}
 
@@ -400,24 +404,6 @@ main (void)
 		// take an analog sample, save sample, update leds
 		update_sample(adc_poll());
 
-
-		//PORTB|=LEDD_BV;
-		//l = adc_poll();
-		//PORTB|=LEDC_BV;
-		//update_leds(l);
-		//PORTB|=LEDB_BV;
-		//while (l > 0) 
-		//{
-		//	_delay_ms(10);
-		//	l -= 10;
-		//}
-		//PORTB&=~LEDALL_BV;
-		//LED_PORT|=LEDA_BV;
-
-		// sleep 250ms
-		_delay_ms(250);
-		//LED_PORT&=~(LEDA_BV);
-		//_delay_ms(250);
 #endif		
 	}
 	
