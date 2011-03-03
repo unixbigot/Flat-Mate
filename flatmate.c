@@ -192,12 +192,21 @@ void delay_1s(void)
 /* 
  *@ Application subroutines
  */
-	// (shutdown now or fry your battery)
-	if   (level > VL_CRIT)
+void update_leds(unsigned int level) 
+{
+	unsigned char leds = LED_PORT;
+
+	leds &= ~LEDALL_BV;
+	// The critical level LED is independent of the bargraph leds.
+	// It's a biColor RED when crit, and YELLOW for power-on-voltage-OK
+	// The same pin may also be connected to a FET that can turn off the load
+	//
+	if (level > VL_CRIT)
 	{
-		// battery critical, clear the OK pin
+		// battery is OK, yellow LED, FET active 
 		leds |= LEDA_BV;
 	}
+	// otherwise battery is FLAT, red LED, FET off
 
 #if USE_BARGRAPH
 	// OPTIONAL 3-element Bargraph showing state-of-charge.
