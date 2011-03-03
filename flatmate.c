@@ -1,5 +1,5 @@
 /*
- * Simple Li-poly battery monitor
+ * Flat Mate - Simple Li-poly battery monitor
  *
  * DEVICE: attiny45
  * FUSES:  LHX: 0x062 0xDF 0xFF -- 1MHz RC oscillator

@@ -6,9 +6,9 @@ MCU = attiny45
 #F_CPU = 8000000
 F_CPU = 1000000
 
-TARGET = limon
+TARGET = flatmate
 
-SRC = limon.c avr_adc.c
+SRC = flatmate.c avr_adc.c
 
 include ../avr-libs/avr-tmpl.mk
 AVRDUDE_PORT=/dev/tty.usbserial-A5001s6e 
