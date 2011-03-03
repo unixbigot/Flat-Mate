@@ -19,16 +19,17 @@
  * 
  * Pins:
  *
- * BATI - Battery voltage sense input pint 
- * LEDA - battery level ok led (yellow /red bicolour totem-pole arrangement)
- * LEDB - battery level low led (yellow)
- * LEDC - battery level good led (yellow)
- * LEDD - battery level full led (green)
+ * LEDA - (PB0) battery level ok led (yellow /red bicolour totem-pole arrangement)
+ * LEDB - (PB1) battery level low led (yellow)
+ * LEDC - (PB2) battery level good led (yellow)
+ * LEDD - (PB3) battery level full led (green)
+ * BATI - (PB4) Battery voltage sense input pint 
  *
  * Interrupts:
  *
  * TICK - timer tick from internal timer 1 (clk/2048) = 1MHz/2k + TOP=122 => 4.0023 Hz
  * ADC  - ADC conversion interrupt
+ *
  */
 
 #define TICK_OCR		OCR1C
@@ -39,15 +40,6 @@
 #define TICK_CLK_DIV_16384	(_BV(CS13)|_BV(CS12)|_BV(CS11)|_BV(CS10))
 #define TICK_CLK_MODE		TICK_CLK_DIV_2048
 #define TICK_OVF_VECT		TIM1_OVF_vect
-
-
-// battery voltage level (Vb) input uses Analog input 2 on PB4 (pin 3)
-// Vb/12 via voltage-divider is compared against internal 1.1V reference 
-// (ADC unit has choice of 1.1v, 2.56v and 5v(VCC) references.)
-#define BATI_DDR		DDRB
-#define BATI_PORT		PORTB
-#define BATI_BIT		PB4
-#define BATI_BV			_BV(BATI_BIT)
 
 // primary output is a red "battery dangerously low" alert on PB0
 // secondary output is a three-element bargraph on PB[123]
@@ -65,13 +57,23 @@
 #define LEDD_BV			_BV(LEDD_BIT)
 #define LEDALL_BV		(LEDA_BV|LEDB_BV|LEDC_BV|LEDD_BV)
 
+// battery voltage level (Vb) input uses Analog input 2 on PB4 (pin 3)
+// Vb/12 via voltage-divider is compared against internal 1.1V reference 
+// (ADC unit has choice of 1.1v, 2.56v and 5v(VCC) references.)
+#define BATI_DDR		DDRB
+#define BATI_PORT		PORTB
+#define BATI_BIT		PB4
+#define BATI_BV			_BV(BATI_BIT)
+
 #else
 // insert constants for other supported chips here
 #error unsupported chip
 #endif
 
 /* 
- *@ Constants 
+ *@ Configuration constants 
+ *
+ * 
  */
 #define USE_TIMER 1
 #define USE_BARGRAPH 1
@@ -79,18 +81,21 @@
 
 /* 
  *@@ Voltage trigger levels.
+ *
  * Battery voltage is read through a voltage divider and compared to the internal voltage reference.
  *
  * if 
  *    Vin ----+
  *            R1
- *            +----- Vout
+ *            +----- Vout (BATI)
  *            R2
  *            |
  *            =
  *            .  (gnd)
  *
  * Then Vout = Vin * ( R2 / (R1 + R2) ) 
+ *
+ * ; Use this Emacs lisp function to calculate divisors
  * (defun rn2div (rup rdown) (/ (float rdown) (+ rup rdown)))
  *
  * 
@@ -128,12 +133,16 @@
  * against Vcc (5.0v), but in practice a 12:1 divisor is easier to achieve
  * due to the standard first preference resistor value series.
  *
+ * You can use the Emacs lisp defuns to calculate threshold analog values for your voltage levels
+ *
  * (defun volts2int (v sf ref) (round (/ (* 1024.0 (* (float v) sf) ) (float ref))))
  * (defun vlist2int (sf ref levels) (mapcar (lambda (v) (volts2int (float v) sf ref)) levels))
  * eg. (volts2int 12 0.333 5.0) => 818
  *     (vlist2int (rn2div 10000 1000) 1.1 '(12 11 10 9)) => (1016 931 846 762)
  *     (vlist2int (rn2div 20000 10000) 5.0 '(12 11 10 9)) => (819 751 683 614)
  *     (vlist2int (rn2div 12000 1000) 1.1 '(12 11 10 9))=> (859 788 716 644)
+ *
+ *     The above line calculates the VL_* values shown below
  */
 
 #if CELL_COUNT == 3
@@ -176,9 +185,9 @@
  *
  */
 #define SAMPLE_SIZE 4
-char nsample;  // current number of samples in accumulator
-int sum;       // value of accumulator (sum of samples)
-int level;     // voltage level (mean of previous sample set)
+char nsample;  /* current number of samples in accumulator */
+int sum;       /* value of accumulator (sum of samples) */
+int level;     /* voltage level (mean of previous sample set) */
 
 
 void delay_1s(void)
@@ -194,58 +203,81 @@ void delay_1s(void)
  */
 void update_leds(unsigned int level) 
 {
+	/* 
+	 * Copy current port value into temporary storage for modification.
+	 * This allows atomic update without turning off the load power.
+	 */
 	unsigned char leds = LED_PORT;
 
 	leds &= ~LEDALL_BV;
-	// The critical level LED is independent of the bargraph leds.
-	// It's a biColor RED when crit, and YELLOW for power-on-voltage-OK
-	// The same pin may also be connected to a FET that can turn off the load
-	//
+	/*
+	 * The critical level LED is independent of the bargraph leds.
+	 * It's a biColor RED when crit, and YELLOW for power-on-voltage-OK
+	 * The same pin may also be connected to a FET that can turn off the load
+	 */
 	if (level > VL_CRIT)
 	{
-		// battery is OK, yellow LED, FET active 
+		/* battery is OK, yellow LED lit, FET active */
 		leds |= LEDA_BV;
 	}
-	// otherwise battery is FLAT, red LED, FET off
+	/* otherwise battery is FLAT, red LED lit, FET off */
 
 #if USE_BARGRAPH
-	// OPTIONAL 3-element Bargraph showing state-of-charge.
-	//
+	/* 
+	 * OPTIONAL 3-element Bargraph showing state-of-charge. 
+	 *
+	 * >=FULL GYYY_
+	 * >=GOOD _YYY_
+	 * >=LOW  __YY_
+	 * >=CRIT ___Y_
+	 * <CRIT  ____R
+	 *
+	 */
 	if (level >= VL_FULL)
 	{
-		// battery full
+		/* battery FULL or higher */
 		leds |= (LEDB_BV|LEDC_BV|LEDD_BV);
 	}
 	else if (level >= VL_GOOD) 
 	{
-		// battery good
+		/* battery GOOD or better */
 		leds |= (LEDB_BV|LEDC_BV);
 	}
 	else if (level >= VL_LOW) 
 	{
-		// battery low, but usable
+		/* battery better than LOW */
 		leds |= LEDB_BV;
 	}
-	// between LOW and CRIT the bargraph will be dark, only the BiColour CRIT/GOOD led wil light (i.e. GRN=not-crit)
+	/* 
+	 * Between LOW and CRIT the bargraph will be dark, 
+	 * only the BiColour CRIT/GOOD led will light (i.e. YELLOW=power good)
+	 */
 #endif
 
+	/* Write back the modified port state */
 	LED_PORT = leds;
 }
 
 void update_sample(int v) 
 {
-	// bump the global Count and Sum values, 
-	// and when we have accumulated SAMPLE_SIZE samples, compute an average
+	/* 
+	 * bump the global Count and Sum values, 
+	 * and when we have accumulated SAMPLE_SIZE samples, compute an average
+	 */
 	sum += v;
 	++nsample;
 
 	if (nsample >= SAMPLE_SIZE) 
 	{
-		// we have a full set of samples, calculate mean
+		/* 
+		 * we have a full set of samples, calculate mean and update display
+		 */
 		level = sum/nsample;
 		update_leds(level);
 
-		// reset accumulator
+		/* 
+		 * reset accumulator
+		 */
 		nsample=0;
 		sum=0;
 	}
@@ -262,17 +294,9 @@ ISR(TICK_OVF_VECT)
 	/* 
 	 * We got our 1/4 second interrupt
 	 * 
-	 * Kick of an ADC and go back to sleep, the conversion-complete interrupt will do the rest
+	 * Read the analog input and update the sample set
 	 */
-	//PINB|=LEDD_BV;
-	
-	// write a 1 to ADSC, bit stays high till conversion complete, then goes low, triggering interrupt
-	// conversion will take around 0.1ms (13 ADC clock cycles at 125kHz ADclk)
-	//ADCSRA |= ADSC;
-	//adc_start();
-
 	update_sample(adc_poll());
-
 }
 
 /* 
@@ -288,7 +312,6 @@ ISR(ADC_vect)
 	PINB|=LEDB_BV;
 	ADCSRA|=_BV(ADIF);
 	(void)adc_read();
-	//update_sample(adc_read());
 }
 #endif
 
@@ -305,7 +328,6 @@ ioinit (void)
 	 * Set up BATI pin as analog input
 	 */
 	BATI_DDR &= ~BATI_BV;
-	//DIDR0 |= ADC2D; // disable digital input buffer on PB4
 
 	/* 
 	 * Set up all LED pins as ouputs
@@ -353,10 +375,10 @@ ioinit (void)
 	 * FIXME: really could disable timer interrupts altogether and 
 	 * set ADC to triggerr from timer compare match
 	 */
-	TCCR1 |= _BV(PWM1A); // clear timer on OCR1C match, generate overflow interrupt
-	TCCR1 |= TICK_CLK_MODE; // prescaler divider 2048
+	TCCR1 |= _BV(PWM1A);    /* clear timer on OCR1C match, generate overflow interrupt */
+	TCCR1 |= TICK_CLK_MODE; /* prescaler divider 2048 */
 	TICK_OCR = TICK_TOP;
-	TIMSK |= _BV(TOIE1); // overflow interrupt enable 
+	TIMSK |= _BV(TOIE1);    /* overflow interrupt enable */
 #endif
  
 	/* 
@@ -364,29 +386,31 @@ ioinit (void)
 	 *
 	 * Internal 1v1 reference, using single-ended channel 2 (PB4, pin 3)
 	 */
-	//ADMUX |= _BV(REFS1); // 1.1v internal ref
 	adc_setref(ADC_VREF_INT_1V1);
 	
 	ADMUX|=_BV(MUX1); // ADC2(PB4)
 	//adc_setch(2);
 
-	// set ADC clock prescaler -
-	// we have 1MHz clock, we want 50-200kHz ADclk
-	// Select divisor 8 (0b011), giving 125kHz
-	//ADCSRA |= (_BV(ADPS1)|_BV(ADPS0));
+	/* 
+	 * set ADC clock prescaler - we have 1MHz clock, we want 50-200kHz ADclk
+	 */
 	adc_setprescaler(ADC_PRESCALER_DIV8);
 
-	// enable ADC unit by settting ADEN in ADCSRA
-	//ADCSRA |= _BV(ADEN);
+	/* 
+	 * enable ADC unit by settting ADEN in ADCSRA
+	 */
 	adc_enable(1);
 
-	// perform one (polled) conversion and discard result
-	// (first conversion after ADC enable is less accurate than subsequent)
+	/* 
+	 * Perform one (polled) conversion and discard result
+	 * (datasheet says first conversion after ADC enable is less accurate than subsequent)
+	 */
 	(void)adc_poll();
-	//delay_1s();
 
 #if 0 && USE_TIMER
-	// enable ADC interrupts
+	/* 
+	 * enable ADC interrupts
+	 */
 	ADCSRA|=_BV(ADIF);
 	ADCSRA&=~_BV(ADATE);
 	ADCSRA |= _BV(ADIE);
@@ -410,7 +434,9 @@ main (void)
 #if USE_TIMER		
 		sleep_mode();
 #else
-		// take an analog sample, save sample, update leds
+		/* 
+		 * take an analog sample, save sample, update leds
+		 */
 		update_sample(adc_poll());
 
 #endif		
