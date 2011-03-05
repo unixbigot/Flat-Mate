@@ -28,7 +28,6 @@
  * the code is much more maintainable.
  *
  */
-
 extern void adc_enable(unsigned char on);
 extern void adc_setref(unsigned char ref);
 extern void adc_setch(unsigned char ch);

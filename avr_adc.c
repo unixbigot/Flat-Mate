@@ -73,7 +73,7 @@ void adc_setch(unsigned char ch)
 	ADMUX = admux_copy;
 }
 
-extern void adc_setprescaler(unsigned char ps)
+void adc_setprescaler(unsigned char ps)
 {
 	unsigned char adcsra_copy = ADCSRA;
 	adcsra_copy &= ~(_BV(ADPS2)|_BV(ADPS1)|_BV(ADPS0));
@@ -81,7 +81,7 @@ extern void adc_setprescaler(unsigned char ps)
 	ADCSRA = adcsra_copy;
 }
 
-extern void adc_enable(unsigned char on)
+void adc_enable(unsigned char on)
 {
 	if (on)
 		ADCSRA |= _BV(ADEN);
@@ -89,7 +89,7 @@ extern void adc_enable(unsigned char on)
 		ADCSRA &= ~_BV(ADEN);
 }
 
-extern void adc_intenable(unsigned char on)
+void adc_intenable(unsigned char on)
 {
 	if (on)
 		ADCSRA |= _BV(ADIE);
