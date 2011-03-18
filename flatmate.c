@@ -23,7 +23,7 @@
  * LEDB - (PB1) battery level low led (yellow)
  * LEDC - (PB2) battery level good led (yellow)
  * LEDD - (PB3) battery level full led (green)
- * BATI - (PB4) Battery voltage sense input pint 
+ * BATI - (PB4) Battery voltage sense input 
  *
  * Interrupts:
  *
@@ -41,8 +41,11 @@
 #define TICK_CLK_MODE		TICK_CLK_DIV_2048
 #define TICK_OVF_VECT		TIM1_OVF_vect
 
-// primary output is a red "battery dangerously low" alert on PB0
-// secondary output is a three-element bargraph on PB[123]
+// Primary output is a "battery OK/Alert" signal on PB0 that drives
+// a BiColor LED and/or a MOSFET.
+//
+// Secondary output is a three-element bargraph on PB[123]
+//
 #define LED_DDR			DDRB
 #define LED_PORT		PORTB
 #define LED_PIN			PINB
@@ -84,7 +87,7 @@
  *
  * Battery voltage is read through a voltage divider and compared to the internal voltage reference.
  *
- * if 
+ * If 
  *    Vin ----+
  *            R1
  *            +----- Vout (BATI)
@@ -114,8 +117,8 @@
  * Fully charged LiPo is 4.23v/cell, discharged is 2.7v/cell (nominal voltage 3.7v/cell)
  * For battery endurance, do not discharge below 3.0v/cell (aircraft users commonly use 2.9v/cell as limit)
  *
- * A 3-cell battery (nominally 11.1v) thus varies from 12.9v to 8.1v, with low-volt alert at 9.0v
- * A 2-cell battery (nominally 7.5v)  varies      from  8.5v to 5.4v, with low-volt alert at 6.0v
+ * A 3-cell battery (nominally 11.1v) thus varies from 12.9v to 8.10v, with low-volt alert at 9.00v
+ * A 2-cell battery (nominally 7.46v)  varies     from 8.46v to 5.40v, with low-volt alert at 6.00v
  *
  *
  *@@ Analog read values for defined voltage levels
@@ -123,8 +126,7 @@
  * We consider 12v+ to be "full", 11v "good", 10v "low" and 9v "critical" 
  * (BMV_foo constants are these values in millivolts)
  *
- * In AVR-worldview, we use 12:1 voltage divider 
- * and read 10-bit ADC comparisons versus AREF (1.1v)
+ * In AVR-worldview, we use 12:1 voltage divider and read 10-bit ADC comparisons versus AREF (1.1v)
  *  
  * So 12v becomes 1.00V when divided.   
  * Compared to 1.1v reference this gives an ADC result of 1024*(1.0/1.1) == 859
@@ -133,7 +135,7 @@
  * against Vcc (5.0v), but in practice a 12:1 divisor is easier to achieve
  * due to the standard first preference resistor value series.
  *
- * You can use the Emacs lisp defuns to calculate threshold analog values for your voltage levels
+ * You can use these Emacs lisp defuns to calculate threshold analog values for your voltage levels
  *
  * (defun volts2int (v sf ref) (round (/ (* 1024.0 (* (float v) sf) ) (float ref))))
  * (defun vlist2int (sf ref levels) (mapcar (lambda (v) (volts2int (float v) sf ref)) levels))
@@ -148,30 +150,30 @@
 #if CELL_COUNT == 3
 
 #define BMV_FULL 12000
-#define VL_FULL 859
+#define VL_FULL    859
 
 #define BMV_GOOD 11000
-#define VL_GOOD   788
+#define VL_GOOD    788
 
-#define BMV_LOW 10000
-#define VL_LOW   716
+#define BMV_LOW  10000
+#define VL_LOW     716
 
-#define BMV_CRIT 9000
-#define VL_CRIT  644
+#define BMV_CRIT  9000
+#define VL_CRIT    644
 
 #elif CELL_COUNT == 2
 
-#define BMV_FULL 8000
-#define VL_FULL   573
+#define BMV_FULL  8000
+#define VL_FULL    573
 
-#define BMV_GOOD 7300
-#define VL_GOOD   523
+#define BMV_GOOD  7300
+#define VL_GOOD    523
 
-#define BMV_LOW  6650
-#define VL_LOW    476
+#define BMV_LOW   6650
+#define VL_LOW     476
 
-#define BMV_CRIT 6000
-#define VL_CRIT   430
+#define BMV_CRIT  6000
+#define VL_CRIT    430
 
 #else
 #error "Unsupported cell count"
@@ -373,7 +375,7 @@ ioinit (void)
 	 * Set up timer 1 as clock tick source
 	 *
 	 * FIXME: really could disable timer interrupts altogether and 
-	 * set ADC to triggerr from timer compare match
+	 * set ADC to trigger from timer compare match
 	 */
 	TCCR1 |= _BV(PWM1A);    /* clear timer on OCR1C match, generate overflow interrupt */
 	TCCR1 |= TICK_CLK_MODE; /* prescaler divider 2048 */
@@ -438,7 +440,7 @@ main (void)
 		 * take an analog sample, save sample, update leds
 		 */
 		update_sample(adc_poll());
-
+		_delay_ms(250);
 #endif		
 	}
 	

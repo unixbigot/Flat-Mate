@@ -126,15 +126,15 @@ convenient for breadboards.
 
 Once the design was proven, a version was constructed on through-hole
 prototyping board with components arranged to take advantage of
-pin-bridging where possible.   This turned out to be difficult since
-the prototype board featured a solder mask that was *VERY* resistant
-to bridging.   
+pin-bridging where possible.  This turned out to be difficult since
+the chosen double-sided prototype board featured a solder mask that
+was *VERY* resistant to bridging (this would normally be a laudable
+feature).  A plain copper single-sided protoboard would have actually
+been a better choice.
 
 The prototype has been deployed for use as a bicycle headlamp battery
 pack.
 
 Subsequent revisions will use ATTiny25 in SMD package, and SMD
 components.
-
-
 
