@@ -6,11 +6,15 @@ This project monitors the voltage of a battery and displays a
 MOSFET control may be used to cut off supply to protect the battery
 from over-discharge.
 
-It is intended for use in high power applications such as lighting,
-robotics and power tools where a charged SLA or LiPo battery is
-discharged in the presence of a human operator.  The first deployment
-was for a high-power bicycle headlamp.   Design was inspired by the
-simple state-of-charge indicators present on some electric bicycles.
+It is particularly applicable for multi-cell Lithium-ion Polymer
+(LiPo) packs, which are easily ruined if over-discharged.
+
+It is intended for use in high power applications such as portable
+lighting, robotics and power tools where a charged SLA or LiPo battery
+is discharged in the presence of a human operator.  The first
+deployment was for a high-power bicycle headlamp.  Design was inspired
+by the simple state-of-charge indicators present on some electric
+bicycles.
 
 The advantage over existing inexpensive "off the shelf" protection
 circuits is that this circuit gives a visual indication of
@@ -31,8 +35,14 @@ The bargraph will show 4 LEDs when at "full charge" and
 1 LED when at minimum usable voltage.  When voltage is critical
 a 5th "alert" LED will illuminate (and output supply can be terminated).
 
+The circuit can be used purely as a voltage indicator by leaving off
+the optional MOSFET switch components.  If a MOSFET is fitted this can
+be used to disconnect the main load when the battery is depleted.
+
 Hardware Details
 ----------------
+
+![schematic](hw/flatmate.png)
 
 The bargraph consists of 5 3mm LEDs (green, yellow and red) arranged
 GYYYR.  The first four (GYYY) form the bargraph and the 5th (red) is
@@ -62,21 +72,21 @@ initial application of a 3-cell (11.4v nominal) Lithium-ion Polymer
 Four voltage thresholds are configured (in millivolts), depending on battery type.
 For a 3S LiPo these are:
 
-   * BMV_FULL 12.000v
-   * BMV_GOOD 11.000v
-   * BMV_LOW  10.000v
-   * BMV_CRIT  9.000v
+	    BMV_FULL = 12.000v
+	    BMV_GOOD = 11.000v
+	    BMV_LOW  = 10.000v
+	    BMV_CRIT =  9.000v
 
 The code converts these thresholds to analog sample values at compile
 time, defining corresponding VL_FULL..CRIT constants.
 
 These thresholds give the following LED readouts:
 
-   * >=FULL GYYY_
-   * >=GOOD _YYY_
-   * >=LOW  __YY_
-   * >=CRIT ___Y_
-   * <CRIT  ____R
+	    if >= FULL output GYYY_
+	    if >= GOOD output _YYY_
+	    if >= LOW  output __YY_
+	    if >= CRIT output ___Y_
+	    if  < CRIT output ____R
 
 ### Setup
 
@@ -94,15 +104,16 @@ These thresholds give the following LED readouts:
 ### Timer interrupt handler
 
    * Read battery voltage
-   ** initiate conversion
-   ** busy-wait until conversion complete
-   ** read completed value
-   * update sample value
-   ** add sample value to accumulator
-   ** when 4 samples are accumulated, average and update display
-   *** Clear all LEDs
-   *** Light the CRITICAL LED (and kill power) if level is <=VL_CRIT
-   *** Set the bargraph appropriately if level is >VL_CRIT (see above)
+      * initiate conversion
+      * busy-wait until conversion complete
+      * read completed value
+   * Update sample value
+      * add sample value to accumulator
+      * if 4 samples are accumulated, calculate the average and reset accumulator
+   * Update the display whenver accumulator is reset
+      * Clear all LEDs
+      * Light the CRITICAL LED (and kill power) if level is <=VL_CRIT
+      * Set the bargraph appropriately if level is >VL_CRIT (see above)
 
 Since samples are accumulated at 4Hz, and each 4 samples are averaged,
 the outputs will be changed only once per second.  Averaging is used
