@@ -344,23 +344,22 @@ ioinit (void)
 	for (i=0; i<10; i++) {
 		l = LED_PORT;
 		l &= ~(LEDALL_BV);
+		// Do not strobe the LEDA pin as this may control the load power
 		switch(v)
 		{
 		case 0:
-			l|=LEDA_BV;
-			break;
-		case 1:
 			l|=LEDB_BV;
 			break;
-		case 2:
+		case 1:
 			l|=LEDC_BV;
 			break;
-		case 3:
+		case 2:
 			l|=LEDD_BV;
+			break;
 			v=-1;
 		}
 		v++;
-		if (v>3)
+		if (v>2)
 			v=0;
 		LED_PORT = l;
 		_delay_ms(100);
