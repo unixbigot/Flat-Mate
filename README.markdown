@@ -6,6 +6,8 @@ This project monitors the voltage of a battery and displays a
 MOSFET control may be used to cut off supply to protect the battery
 from over-discharge.
 
+See construction pictures on [my blog](http://blog.unixbigot.id.au/2011/03/flat-mate-protect-your-lipo-cells-from.html)
+
 It is particularly applicable for multi-cell Lithium-ion Polymer
 (LiPo) packs, which are easily ruined if over-discharged.
 
