@@ -13,7 +13,7 @@
 
 #include "avr_adc.h"
 
-#ifdef __AVR_ATtiny45__
+#if defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny25__) 
 /* 
  *@@ Pin assignments for ATtiny45
  * 
@@ -80,7 +80,7 @@
  */
 #define USE_TIMER 1
 #define USE_BARGRAPH 1
-#define CELL_COUNT 3
+#define CELL_COUNT 4
 
 /* 
  *@@ Voltage trigger levels.
@@ -424,8 +424,6 @@ ioinit (void)
 int
 main (void)
 {
-	char i;
-	int l;
 	
 	ioinit ();
 	

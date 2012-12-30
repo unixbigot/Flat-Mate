@@ -8,7 +8,7 @@
 #include <util/delay.h>
 #include "avr_adc.h"
 
-#ifndef __AVR_ATtiny45__
+#if !defined(__AVR_ATtiny45__) && !defined(__AVR_ATtiny25__)
 #error "This library only tested on Tiny45 so far"
 #endif
 
