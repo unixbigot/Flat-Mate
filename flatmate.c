@@ -80,7 +80,7 @@
  */
 #define USE_TIMER 1
 #define USE_BARGRAPH 1
-#define CELL_COUNT 4
+#define CELL_COUNT 3
 
 /* 
  *@@ Voltage trigger levels.
@@ -117,13 +117,15 @@
  * Fully charged LiPo is 4.23v/cell, discharged is 2.7v/cell (nominal voltage 3.7v/cell)
  * For battery endurance, do not discharge below 3.0v/cell (aircraft users commonly use 2.9v/cell as limit)
  *
- * A 3-cell battery (nominally 11.1v) thus varies from 12.9v to 8.10v, with low-volt alert at 9.00v
  * A 2-cell battery (nominally 7.46v)  varies     from 8.46v to 5.40v, with low-volt alert at 6.00v
+ * A 3-cell battery (nominally 11.1v) thus varies from 12.9v to 8.10v, with low-volt alert at 9.00v
+ * A 4-cell battery (nominally 14.8v) thus varies from 16.9v to 10.8v, with low-volt alert 12 12.0v
+ *   NOTE: a 4-cell battery requires a different voltage divider than 2-and-3 cells (use 15:1 not 12:1)
  *
  *
  *@@ Analog read values for defined voltage levels
  *
- * We consider 12v+ to be "full", 11v "good", 10v "low" and 9v "critical" 
+ * For a 3-cell battery, we consider 12v+ to be "full", 11v "good", 10v "low" and 9v "critical" 
  * (BMV_foo constants are these values in millivolts)
  *
  * In AVR-worldview, we use 12:1 voltage divider and read 10-bit ADC comparisons versus AREF (1.1v)
@@ -144,10 +146,29 @@
  *     (vlist2int (rn2div 20000 10000) 5.0 '(12 11 10 9)) => (819 751 683 614)
  *     (vlist2int (rn2div 12000 1000) 1.1 '(12 11 10 9))=> (859 788 716 644)
  *
- *     The above line calculates the VL_* values shown below
+ * for 4-cell, use a 15:1 divider
+ *     (vlist2int (rn2div 15000 1000) 1.1 '(16 14.5 13 12)) => (931 844 756 698)
+ *
+ * The above lines calculate the VL_* values shown below
  */
 
-#if CELL_COUNT == 3
+#if CELL_COUNT == 4
+/* Use a 15:1 voltage divider */
+
+#define BMV_FULL 16000
+#define VL_FULL    931
+
+#define BMV_GOOD 14500
+#define VL_GOOD    844
+
+#define BMV_LOW  13000
+#define VL_LOW     756
+
+#define BMV_CRIT 12000
+#define VL_CRIT    698
+
+#elif CELL_COUNT == 3
+/* Use a 12:1 voltage divider */
 
 #define BMV_FULL 12000
 #define VL_FULL    859
@@ -162,6 +183,7 @@
 #define VL_CRIT    644
 
 #elif CELL_COUNT == 2
+/* Use a 12:1 voltage divider */
 
 #define BMV_FULL  8000
 #define VL_FULL    573
